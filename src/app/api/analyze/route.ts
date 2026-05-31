@@ -1,7 +1,7 @@
 import {
   ai,
   MODEL,
-  checkOllama,
+  checkAI,
   streamToResponse,
   STREAM_HEADERS,
 } from "@/lib/ai";
@@ -35,10 +35,10 @@ Write exactly these three sections in Markdown:
 3-4 bullets on real risks, complexity hotspots, or things a new contributor should watch out for. Be constructive — if the code is clean, say what specifically makes it robust.`;
 
 export async function POST(request: Request) {
-  // Check Ollama is running and the model is available.
-  const ollamaError = await checkOllama();
-  if (ollamaError) {
-    return Response.json({ error: ollamaError }, { status: 503 });
+  // Make sure the AI backend (Groq or local Ollama) is reachable.
+  const aiError = await checkAI();
+  if (aiError) {
+    return Response.json({ error: aiError }, { status: 503 });
   }
 
   let url: string;

@@ -1,30 +1,45 @@
 /**
- * AI client — points at a local Ollama instance via its OpenAI-compatible API.
- * No API key needed. Free forever.
+ * AI client — OpenAI-compatible, with two zero-cost backends:
  *
- * Make sure Ollama is running (`ollama serve`) and you have pulled a model:
- *   ollama pull mistral
+ *   • Groq  (hosted)  — set GROQ_API_KEY. Free tier, very fast. This is the
+ *                       production / public live-demo path (e.g. on Vercel).
+ *   • Ollama (local)  — the default when no key is set. Free and private,
+ *                       ideal for development. Run `ollama serve` + pull a model.
+ *
+ * Because both speak the OpenAI API, switching is just a base URL + key.
  */
 
 import OpenAI from "openai";
 
-export const OLLAMA_BASE_URL =
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+
+/** True when a hosted Groq key is configured (production / live demo). */
+export const USING_GROQ = Boolean(GROQ_API_KEY);
+
+const OLLAMA_BASE_URL =
   process.env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1";
 
-/** Which model to use. Override with OLLAMA_MODEL in .env.local */
-export const MODEL = process.env.OLLAMA_MODEL ?? "mistral";
+export const AI_BASE_URL = USING_GROQ
+  ? "https://api.groq.com/openai/v1"
+  : OLLAMA_BASE_URL;
 
-/** OpenAI-compatible client pointing at local Ollama. */
+/** Model to use. Override with AI_MODEL for either backend. */
+export const MODEL =
+  process.env.AI_MODEL ?? (USING_GROQ ? "llama-3.3-70b-versatile" : "mistral");
+
+/** OpenAI-compatible client pointing at Groq (hosted) or Ollama (local). */
 export const ai = new OpenAI({
-  baseURL: OLLAMA_BASE_URL,
-  apiKey: "ollama", // required by the SDK but ignored by Ollama
+  baseURL: AI_BASE_URL,
+  apiKey: GROQ_API_KEY ?? "ollama", // Ollama requires a value but ignores it
 });
 
 /**
- * Quick check that Ollama is reachable and the chosen model is installed.
- * Returns null on success, or an error string to show the user.
+ * Health check. For Groq we just confirm a key is present (real errors surface
+ * on the first call). For local Ollama we verify the server is reachable and
+ * the chosen model is installed. Returns null on success, else an error string.
  */
-export async function checkOllama(): Promise<string | null> {
+export async function checkAI(): Promise<string | null> {
+  if (USING_GROQ) return null;
   try {
     const res = await fetch(
       `${OLLAMA_BASE_URL.replace("/v1", "")}/api/tags`,
